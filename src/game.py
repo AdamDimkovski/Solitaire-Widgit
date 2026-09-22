@@ -3,6 +3,7 @@ import random
 
 from card import Card
 
+
 class Game:
         # The initializer/constructor method
         def __init__(self):
@@ -28,6 +29,7 @@ class Game:
             deck = self.create_full_deck()
             random.shuffle(deck)
 
+            
             # Sepertes all the cards between the 7 piles and stock pile
             self.tableau, self.stock = self.deal_to_tableau(deck)
 
@@ -37,6 +39,7 @@ class Game:
             # Generate 1 list for waste cards
             self.waste = []
 
+        # Generates full deck of cards before game
         def create_full_deck(self):
              deck = []
              for suit in ["Hearts", "Diamonds", "Clubs", "Spades"]:
@@ -44,9 +47,18 @@ class Game:
                         deck.append(Card(suit, rank))
 
              return deck
-
-        def deal_to_tableau(self, deck):
+        
+        
+        # Deals tableau piles at start of game
+        @staticmethod
+        def deal_to_tableau(deck):
+             
+             tableau = []
+             
+             # 7 tabelau Piles
              for column_index in range(7):
+                  
+                  # Each tableau stack
                   this_column = []
                   numcards_in_column = column_index + 1
 
@@ -55,10 +67,10 @@ class Game:
                        this_column.append(card)
 
                   this_column[-1].flip()
-                  self.tableau.append(this_column)
+                  tableau.append(this_column)
 
              stock = deck
-             return self.tableau, stock
+             return tableau, stock
 
 
              

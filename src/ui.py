@@ -6,9 +6,15 @@ class AppWindow:
     def __init__(self, root, game, click_callback):
         self.root = root
         self.root.title("Solitaire")
-        self.root.geometry("1000x700")
+        self.root.geometry("1000x1000")
         self.root.resizable(False, False)
         self.game = game 
+        
+        # Card Highlighting Variables
+        self.selected_card = None
+        self.canvas_ID = None
+        self.card_positions = []
+        self.card_images = []
         
         # Save the callback function passed from main.py
         self.click_callback = click_callback
@@ -19,16 +25,10 @@ class AppWindow:
         )
 
         # Adds placeholder image for foundation cards and resizes them
-        self.raw_card_placeholder = Image.open("assets//PNG//Cards//cardPlaceholder.png") 
-        # Resizes Cards
-        resized_img = self.raw_card_placeholder.resize((100, 160), Image.Resampling.LANCZOS)
-        self.ace_image = ImageTk.PhotoImage(resized_img)
+        self.ace_image = self.load_and_resize("assets//PNG//Cards//cardPlaceholder.png")
 
         # Adds drawpile image for drawpile and resizes it
-        self.raw_card_placeholder = Image.open("assets//PNG//Cards//cardBack_red4.png")
-        # Resizes Cards
-        resized_img = self.raw_card_placeholder.resize((100, 160), Image.Resampling.LANCZOS)
-        self.drawpile_image = ImageTk.PhotoImage(resized_img)
+        self.drawpile_image = self.load_and_resize("assets//PNG//Cards//cardBack_red4.png")
 
         # Create and place widgets
         self.create_widgets()
@@ -42,7 +42,7 @@ class AppWindow:
         self.canvas = tk.Canvas(
             self.root,
             width=1000,
-            height=700,
+            height=1000,
             highlightthickness=0
         )
 
@@ -177,6 +177,10 @@ class AppWindow:
             300,
             image=self.ace_image
         )
+        
+            
+        # Card Click
+        self.canvas.bind("<Button-1>", self.on_canvas_click)
 
     # Function to refresh cards on screen
     def refresh_board(self):
@@ -184,6 +188,16 @@ class AppWindow:
         # Clear previous render
         self.canvas.delete("card")
         self.card_images = []
+        
+        self.card_positions = []
+        
+        # Handles reseting selected cards if game restarts
+        self.selected_card = None
+
+        if self.canvas_ID is not None:
+            self.canvas.delete(self.canvas_ID)
+
+        self.canvas_ID = None
 
         # Draw tableau columns
         tableau_start_x = 125 # The First Tableau Pile X Position
@@ -202,6 +216,9 @@ class AppWindow:
                 self.card_images.append(photo_image)
 
                 self.canvas.create_image(x, y, image=photo_image, tags="card")
+                
+                # Store card position for card selection
+                self.card_positions.append((card, x, y, column_index, card_index, "Tableau"))
 
         # Draws foundation cards if foundation contains cards
         foundation_start_x = 250
@@ -216,8 +233,76 @@ class AppWindow:
                 photo_image = self.load_and_resize(top_card.image_filename())
                 self.card_images.append(photo_image)
                 self.canvas.create_image(x, foundation_y, image=photo_image, tags="card")
+                
+                # Store card position for card selection
+                self.card_positions.append((top_card, x, foundation_y, pile_index, pile, "Foundation"))
 
+    # Function to handle card clicks
+    def canvas_card_click(self, event):
+        
+        # Checks through card positions reversed
+        for card, x, y, pile_index, card_index, pile_type in reversed(self.card_positions):
+            
+            # if the pile of this card is a tableau pile
+            if(pile_type == "Tableau"):
+                column = self.game.tableau[pile_index]
+                index = len(column) - 1
+                
+                if (card_index != index):
+                    continue
+                
+                if (not card.face_up):
+                    continue
+                
+            left = x - 50
+            right = x + 50
+            top = y - 80
+            bottom = y + 80
+                        
+                
+            # Is the click within x and y boundaries
+            if (event.x > left and event.x < right) and (event.y > top and event.y < bottom):
+                
+                 return card
+        
+        return None
+    
+    # Function to handle toggle of card clicks
+    def on_canvas_click(self, event):
 
+        # clicked card contains current clicked card details
+        clicked_card = self.canvas_card_click(event)
+
+        if not clicked_card:
+            return None
+
+        # IF card is same as selected card -> Deselect
+        if self.selected_card == clicked_card:
+            self.selected_card = None
+            self.canvas.delete(self.canvas_ID)
+            self.canvas_ID = None
+
+        # Else Select Card
+        else:
+            self.selected_card = clicked_card
+            
+            if self.canvas_ID is not None:
+                self.canvas.delete(self.canvas_ID)
+
+            # Find X and Y coordinates of clicked card
+            for card, x, y, pile_index, card_index, pile_type in self.card_positions:
+                if card == clicked_card:
+                    self.canvas_ID = self.canvas.create_rectangle(
+                            x - 50,
+                            y - 80,
+                            x + 50,
+                            y + 80,
+                            outline="blue",
+                            width=3
+                    )
+                    break       
+        
+    # Function to load and resize images (helper)
     def load_and_resize(self, filename):
         raw = Image.open(filename)
         resized = raw.resize((100, 160),
