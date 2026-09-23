@@ -9,7 +9,7 @@ class Card:
         self.face_up = False
 
     def flip(self):
-        self.face_up = True
+        self.face_up = not self.face_up
 
     # Function which handles if a card is face up or down
     def image_filename(self):

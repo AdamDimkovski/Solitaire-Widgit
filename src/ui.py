@@ -16,6 +16,12 @@ class AppWindow:
         self.card_positions = []
         self.card_images = []
         
+        # Stock/Waste Pile Variables
+        self.stock_x = 900
+        self.stock_y = 100
+        self.waste_x = 750
+        self.waste_y = 100
+        
         # Save the callback function passed from main.py
         self.click_callback = click_callback
 
@@ -32,6 +38,8 @@ class AppWindow:
 
         # Create and place widgets
         self.create_widgets()
+        
+        self.refresh_board()
         
         
         
@@ -83,13 +91,6 @@ class AppWindow:
             625,
             100,
             image=self.ace_image
-        )
-
-        # Drawpile Card
-        self.canvas.create_image(
-            900,
-            100,
-            image=self.drawpile_image
         )
 
         # New Game button
@@ -179,7 +180,7 @@ class AppWindow:
         )
         
             
-        # Card Click
+        # Card Click event
         self.canvas.bind("<Button-1>", self.on_canvas_click)
 
     # Function to refresh cards on screen
@@ -236,6 +237,36 @@ class AppWindow:
                 
                 # Store card position for card selection
                 self.card_positions.append((top_card, x, foundation_y, pile_index, pile, "Foundation"))
+                
+        # Draws stock cards into stock
+        if not self.game.stock:
+            photo_image = self.ace_image
+            self.card_images.append(photo_image)
+            self.canvas.create_image(self.stock_x, self.stock_y, image=photo_image, tags="card")
+            
+            # Append Card to Card Positions
+            self.card_positions.append((None, self.stock_x, self.stock_y, None, None, "Stock"))
+            
+        else:
+            top_card = self.game.stock[-1]
+            photo_image = self.load_and_resize(top_card.image_filename())
+            self.card_images.append(photo_image)
+            self.canvas.create_image(self.stock_x, self.stock_y, image=photo_image, tags="card")
+            
+            # Append Card to Card Positions
+            self.card_positions.append((top_card, self.stock_x, self.stock_y, None, None, "Stock"))
+            
+        # Draws waste cards into stock
+        if self.game.waste:
+            top_card = self.game.waste[-1]
+            photo_image = self.load_and_resize(top_card.image_filename())
+            self.card_images.append(photo_image)
+            self.canvas.create_image(self.waste_x, self.waste_y, image=photo_image, tags="card")
+        
+            # Append Card to Card Positions
+            self.card_positions.append((top_card, self.waste_x, self.waste_y, None, None, "Waste"))
+            
+        
 
     # Function to handle card clicks
     def canvas_card_click(self, event):
@@ -253,7 +284,7 @@ class AppWindow:
                 
                 if (not card.face_up):
                     continue
-                
+                 
             left = x - 50
             right = x + 50
             top = y - 80
@@ -269,6 +300,23 @@ class AppWindow:
     
     # Function to handle toggle of card clicks
     def on_canvas_click(self, event):
+        
+        if (event.x > self.stock_x - 50 and event.x < self.stock_x + 50) and (event.y > self.stock_y - 80 and event.y < self.stock_y + 80):
+            
+            # Calls stock to waste logic
+            self.game.stock_to_waste()
+            
+            # Clear current selections
+            self.selected_card = None
+            
+            if self.canvas_ID is not None:
+                self.canvas.delete(self.canvas_ID)
+                self.canvas_ID = None
+            
+            # Recalls refresh board
+            self.refresh_board()
+            
+            return
 
         # clicked card contains current clicked card details
         clicked_card = self.canvas_card_click(event)

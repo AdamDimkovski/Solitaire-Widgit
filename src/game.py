@@ -20,7 +20,7 @@ class Game:
             # Will hold stock pile cards
             self.stock = []
 
-            # Will hol waste pile cards
+            # Will hold waste pile cards
             self.waste = []
 
         def new_game(self):
@@ -72,6 +72,39 @@ class Game:
              stock = deck
              return tableau, stock
 
+        # Function to select next card from stock onto waste
+        def stock_to_waste(self):
+             
+               # If neither pile is populated yet (before new game)
+               if not self.waste and not self.stock:
+                    return None
+             
+               # If stock stack is empty
+               if not self.stock:
+                    
+                    # Well theres nothing in stock pile, reappend everything to the stock from waste, in direct order
+                    while self.waste:
+                         
+                         # Appends popped waste card to card variable
+                         card = self.waste.pop()
+                         
+                         # Flips over card again
+                         card.flip()
+                         
+                         # Appends now flipped card back into stock pile.
+                         self.stock.append(card)
+                         
+               # Store popped card
+               card = self.stock.pop()
+               
+               # Flip card before appending
+               card.flip()
+               
+               # Append card to waste
+               self.waste.append(card)
+               
+               return card
+            
 
              
                        
