@@ -104,7 +104,120 @@ class Game:
                self.waste.append(card)
                
                return card
-            
-
+          
+        # Function to determine rules for moving card from pile a to b
+        def tableau_check(self, card, column_index):
              
-                       
+               # If destination is empty -> only king cards can be moved there
+               if not self.tableau[column_index]:
+                    
+                    if card.rank == 13:
+                         return True
+                    else:
+                         return False
+               
+               top_card = self.tableau[column_index][-1]
+                         
+               # Checks to see if destination card and input card are different colors
+               if self.is_red(card) and not self.is_red(top_card) or not self.is_red(card) and self.is_red(top_card):
+                    
+                    # Card in destination must be 1 greater than input card and destination card must be face up
+                    if card.rank == top_card.rank - 1 and top_card.face_up == True:
+                         return True
+                    
+                    else:
+                         return False
+                    
+               else:
+                    return False
+               
+        # Function to determine rules for moving card from pile a to foundation
+        def foundation_check(self, card, column_index):
+             
+             # If foundation pile is empty, only placing ace is allowed.
+             if not self.foundations[column_index]:
+               
+                  if card.rank == 1:
+                   return True
+                  else:
+                   return False
+              
+             top_card = self.foundations[column_index][-1]
+             
+             # Placing new card in existing pile -> suit must be same and rank must be greater by 1
+             if(card.suit == top_card.suit and card.rank == top_card.rank + 1):
+                  return True
+             else:
+                  return False
+             
+        # Function that handles selecting cards when moving
+        def card_selection(self, source, source_pile_num, clicked_card_index):
+             
+             if(source == "Tableau"):
+               column = self.tableau[source_pile_num]
+               return column[clicked_card_index:]
+                  
+             if(source == "Waste"):
+               return self.waste[-1:]
+                  
+             if(source == "Foundation"):
+               pile = self.foundations[source_pile_num]
+               return pile[-1:]
+          
+             # If source isn't any of the above, return nothing.
+             return []
+        
+        # Function which handles moving cards between piles
+        def card_moving(self, source, source_pile_num, clicked_card_index, destination_type, destination_pile_num):
+          
+          # Stores whatever cards are selected in list   
+          cards_list = self.card_selection(source, source_pile_num, clicked_card_index)
+          
+          if not cards_list:
+               return False
+          
+          if source_pile_num == destination_pile_num and source == destination_type:
+               return False
+          
+          # The leading card of the selected cards
+          leading_card = cards_list[0]
+          
+          # Checks to make sure all card moves are valid
+          legal = False
+          
+          if(destination_type == "Tableau"):
+               legal = self.tableau_check(leading_card, destination_pile_num)
+                
+          elif(destination_type == "Foundation" and len(cards_list) == 1):
+               legal = self.foundation_check(leading_card, destination_pile_num)
+          
+          if not legal:
+               return False
+          
+          # Handles Job 1
+          if(source == "Tableau"):
+               column = self.tableau[source_pile_num]
+               del column[clicked_card_index:]
+
+               # Handles Job 2
+               if column and not column[-1].face_up:
+                    column[-1].flip()
+          
+          elif(source == "Waste"):
+               self.waste.pop()
+               
+          elif(source == "Foundation"):
+               self.foundations[source_pile_num].pop()
+          
+          return True
+            
+        # Helper function which returns true if a card is heart or diamond       
+        def is_red(self, card):
+               
+               if card.suit in {"Diamonds", "Hearts"}:
+                    return True
+               else:
+                    return False
+               
+               
+                    
