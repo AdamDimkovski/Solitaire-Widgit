@@ -117,19 +117,19 @@ class Game:
                          return False
                
                top_card = self.tableau[column_index][-1]
+               
+               colors_differ = (self.is_red(card) != self.is_red(top_card))
+               
+               ranks_fit = (card.rank == top_card.rank - 1)
+               
+               card_face_up = (top_card.face_up == True)
                          
                # Checks to see if destination card and input card are different colors
-               if self.is_red(card) and not self.is_red(top_card) or not self.is_red(card) and self.is_red(top_card):
-                    
-                    # Card in destination must be 1 greater than input card and destination card must be face up
-                    if card.rank == top_card.rank - 1 and top_card.face_up == True:
-                         return True
-                    
-                    else:
-                         return False
-                    
+               if colors_differ and ranks_fit and card_face_up:
+                    return True
                else:
                     return False
+               
                
         # Function to determine rules for moving card from pile a to foundation
         def foundation_check(self, card, column_index):
@@ -208,8 +208,33 @@ class Game:
                
           elif(source == "Foundation"):
                self.foundations[source_pile_num].pop()
+               
+          # Handles Job 3: legal moves will now map to where they should go instead of vanish
+          if(destination_type == "Tableau"):
+               self.tableau[destination_pile_num].extend(cards_list)
+               
+          elif(destination_type == "Foundation"):
+               self.foundations[destination_pile_num].extend(cards_list)
           
           return True
+     
+        def card_swapping(self, first_column, first_index, second_column, second_index):
+          
+          first_card = self.tableau[first_column][first_index]
+          second_card = self.tableau[second_column][second_index]
+          
+          faced_up = first_card.face_up and second_card.face_up
+          same_color = (self.is_red(first_card) == self.is_red(second_card))
+          same_rank = first_card.rank == second_card.rank
+          
+          if(first_column == second_column):
+               return False
+          
+          if(faced_up and same_color and same_rank):
+               self.tableau[first_column][first_index], self.tableau[second_column][second_index] = second_card, first_card
+               return True
+
+          return False
             
         # Helper function which returns true if a card is heart or diamond       
         def is_red(self, card):

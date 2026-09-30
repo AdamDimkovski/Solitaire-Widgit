@@ -12,6 +12,9 @@ class AppWindow:
         
         # Card Highlighting Variables
         self.selected_card = None
+        self.source_pile = None
+        self.pile_number = None
+        self.card_index_inpile = None
         self.canvas_ID = None
         self.card_positions = []
         self.card_images = []
@@ -194,6 +197,9 @@ class AppWindow:
         
         # Handles reseting selected cards if game restarts
         self.selected_card = None
+        self.source_pile = None
+        self.pile_number = None
+        self.card_index_inpile = None
 
         if self.canvas_ID is not None:
             self.canvas.delete(self.canvas_ID)
@@ -236,7 +242,7 @@ class AppWindow:
                 self.canvas.create_image(x, foundation_y, image=photo_image, tags="card")
                 
                 # Store card position for card selection
-                self.card_positions.append((top_card, x, foundation_y, pile_index, pile, "Foundation"))
+                self.card_positions.append((top_card, x, foundation_y, pile_index, len(pile) - 1, "Foundation"))
                 
         # Draws stock cards into stock
         if not self.game.stock:
@@ -276,11 +282,6 @@ class AppWindow:
             
             # if the pile of this card is a tableau pile
             if(pile_type == "Tableau"):
-                column = self.game.tableau[pile_index]
-                index = len(column) - 1
-                
-                if (card_index != index):
-                    continue
                 
                 if (not card.face_up):
                     continue
@@ -289,12 +290,15 @@ class AppWindow:
             right = x + 50
             top = y - 80
             bottom = y + 80
+            
+            # Stock loop block
+            if(pile_type == "Stock"):
+                continue
                         
-                
             # Is the click within x and y boundaries
             if (event.x > left and event.x < right) and (event.y > top and event.y < bottom):
                 
-                 return card
+                 return card, pile_type, pile_index, card_index
         
         return None
     
@@ -308,6 +312,9 @@ class AppWindow:
             
             # Clear current selections
             self.selected_card = None
+            self.source_pile = None
+            self.pile_number = None
+            self.card_index_inpile = None
             
             if self.canvas_ID is not None:
                 self.canvas.delete(self.canvas_ID)
@@ -319,20 +326,47 @@ class AppWindow:
             return
 
         # clicked card contains current clicked card details
-        clicked_card = self.canvas_card_click(event)
+        clicked_info = self.canvas_card_click(event)
+        
+        if self.selected_card is not None:
+            identifier = self.pile_identifier(event)
+            
+            if identifier is not None:
+               destination_type, destination_number = identifier
+                
+               if self.game.card_moving(self.source_pile, self.pile_number, self.card_index_inpile, destination_type, destination_number):
+                   self.refresh_board()
+                   return
+            
+            if (clicked_info is not None
+                and self.source_pile == "Tableau"
+                and clicked_info[1] == "Tableau"):
 
-        if not clicked_card:
+                if self.game.card_swapping(self.pile_number, self.card_index_inpile, clicked_info[2], clicked_info[3]):
+                    self.refresh_board()
+                    return
+                 
+
+        if not clicked_info:
             return None
-
+        
+        clicked_card, clicked_type, clicked_pile, clicked_index = clicked_info
+        
         # IF card is same as selected card -> Deselect
         if self.selected_card == clicked_card:
             self.selected_card = None
+            self.source_pile = None
+            self.pile_number = None
+            self.card_index_inpile = None
             self.canvas.delete(self.canvas_ID)
             self.canvas_ID = None
 
         # Else Select Card
         else:
             self.selected_card = clicked_card
+            self.source_pile = clicked_type
+            self.pile_number = clicked_pile
+            self.card_index_inpile = clicked_index
             
             if self.canvas_ID is not None:
                 self.canvas.delete(self.canvas_ID)
@@ -340,11 +374,15 @@ class AppWindow:
             # Find X and Y coordinates of clicked card
             for card, x, y, pile_index, card_index, pile_type in self.card_positions:
                 if card == clicked_card:
+                    if pile_type == "Tableau":
+                        cards_below = len(self.game.tableau[pile_index]) - 1 - card_index
+                    else:
+                        cards_below = 0
                     self.canvas_ID = self.canvas.create_rectangle(
                             x - 50,
                             y - 80,
                             x + 50,
-                            y + 80,
+                            y + 80 + (25 * cards_below),
                             outline="blue",
                             width=3
                     )
@@ -356,4 +394,47 @@ class AppWindow:
         resized = raw.resize((100, 160),
                 Image.Resampling.LANCZOS)
         return ImageTk.PhotoImage(resized)
-
+    
+    # Function to determine which pile was clicked (helper)
+    def pile_identifier(self, event):
+        
+        # Looping for foundation stack
+        
+        # foundation pile cords
+        foundation_start_x = 250
+        foundation_spacing_x = 125
+        foundation_y = 100
+        
+        for pile_numbers in range(4):
+            
+            x = foundation_start_x + (pile_numbers * foundation_spacing_x)
+            y = foundation_y
+            
+            if (event.x > x - 50 and event.x < x + 50) and (event.y > y - 80 and event.y < y + 80):
+                return "Foundation", pile_numbers
+            
+        # Looping for tabelau stack
+        
+        # tableau pile cords
+        tableau_start_x = 125
+        tableau_spacing_x = 125 
+        tableau_base_y = 300 
+        
+        for column_index, column in enumerate(self.game.tableau):
+            
+            x = tableau_start_x + (column_index * tableau_spacing_x)
+            
+            top_edge = tableau_base_y - 80
+            
+            cards_after_first = len(column) - 1
+            
+            if cards_after_first < 0:
+                cards_after_first = 0
+            
+            last_card_centre = tableau_base_y + (25 * cards_after_first)
+            bottom_edge = last_card_centre + 80
+            
+            if (event.x > x - 50 and event.x < x + 50) and (event.y > top_edge and event.y < bottom_edge):
+                return "Tableau", column_index
+        
+        return None 
