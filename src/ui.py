@@ -336,30 +336,27 @@ class AppWindow:
                 
                if self.game.card_moving(self.source_pile, self.pile_number, self.card_index_inpile, destination_type, destination_number):
                    self.refresh_board()
-                   return
-            
-            if (clicked_info is not None
-                and self.source_pile == "Tableau"
-                and clicked_info[1] == "Tableau"):
-
-                if self.game.card_swapping(self.pile_number, self.card_index_inpile, clicked_info[2], clicked_info[3]):
-                    self.refresh_board()
-                    return
-                 
+                   return 
 
         if not clicked_info:
-            return None
-        
-        clicked_card, clicked_type, clicked_pile, clicked_index = clicked_info
-        
-        # IF card is same as selected card -> Deselect
-        if self.selected_card == clicked_card:
             self.selected_card = None
             self.source_pile = None
             self.pile_number = None
             self.card_index_inpile = None
             self.canvas.delete(self.canvas_ID)
             self.canvas_ID = None
+            return None
+        
+        clicked_card, clicked_type, clicked_pile, clicked_index = clicked_info
+        
+        # IF card is same as selected card -> Deselect
+        if self.selected_card == clicked_card or clicked_card == None:
+            self.selected_card = None
+            self.source_pile = None
+            self.pile_number = None
+            self.card_index_inpile = None
+            self.canvas.delete(self.canvas_ID)
+            self.canvas_ID = None       
 
         # Else Select Card
         else:
@@ -373,7 +370,7 @@ class AppWindow:
 
             # Find X and Y coordinates of clicked card
             for card, x, y, pile_index, card_index, pile_type in self.card_positions:
-                if card == clicked_card:
+                if card == clicked_card:         
                     if pile_type == "Tableau":
                         cards_below = len(self.game.tableau[pile_index]) - 1 - card_index
                     else:
@@ -386,7 +383,7 @@ class AppWindow:
                             outline="blue",
                             width=3
                     )
-                    break       
+                    break     
         
     # Function to load and resize images (helper)
     def load_and_resize(self, filename):

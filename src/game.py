@@ -217,24 +217,6 @@ class Game:
                self.foundations[destination_pile_num].extend(cards_list)
           
           return True
-     
-        def card_swapping(self, first_column, first_index, second_column, second_index):
-          
-          first_card = self.tableau[first_column][first_index]
-          second_card = self.tableau[second_column][second_index]
-          
-          faced_up = first_card.face_up and second_card.face_up
-          same_color = (self.is_red(first_card) == self.is_red(second_card))
-          same_rank = first_card.rank == second_card.rank
-          
-          if(first_column == second_column):
-               return False
-          
-          if(faced_up and same_color and same_rank):
-               self.tableau[first_column][first_index], self.tableau[second_column][second_index] = second_card, first_card
-               return True
-
-          return False
             
         # Helper function which returns true if a card is heart or diamond       
         def is_red(self, card):
