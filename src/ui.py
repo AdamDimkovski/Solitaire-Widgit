@@ -324,20 +324,21 @@ class AppWindow:
 
             # Find X and Y coordinates of clicked card
             for card, x, y, pile_index, card_index, pile_type in self.card_positions:
-                if card == clicked_card:         
+                if card == clicked_card:
                     if pile_type == "Tableau":
                         cards_below = len(self.game.tableau[pile_index]) - 1 - card_index
                     else:
                         cards_below = 0
-                        self.canvas_ID = self.canvas.create_rectangle(
-                            x - self.half_w,
-                            y - self.half_h,
-                            x + self.half_w,
-                            y + self.half_h + (self.stack_offset * cards_below),
-                            outline="blue",
-                            width=3
+
+                    self.canvas_ID = self.canvas.create_rectangle(
+                        x - self.half_w,
+                        y - self.half_h,
+                        x + self.half_w,
+                        y + self.half_h + (self.stack_offset * cards_below),
+                        outline="blue",
+                        width=3
                     )
-                    break     
+                    break    
         
     # Function to load and resize images (helper)
     def load_and_resize(self, filename):
