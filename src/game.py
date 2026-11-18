@@ -236,15 +236,3 @@ class Game:
                          return False
                
                return True
-     
-           # TEMP CHEAT: delete when done testing
-        def cheat_fill_foundations(self):
-               deck = self.create_full_deck()
-
-               for card in deck:
-                    card.face_up = True
-
-               self.foundations = [deck[0:13], deck[13:26], deck[26:39], deck[39:52]]
-               self.tableau = [[], [], [], [], [], [], []]
-               self.stock = []
-               self.waste = []

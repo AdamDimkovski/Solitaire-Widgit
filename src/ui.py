@@ -488,17 +488,6 @@ class AppWindow:
     def load_pil(self, filename):
         img = Image.open(filename).convert("RGBA")
         return img.resize((self.card_w, self.card_h), Image.Resampling.LANCZOS)
-        
-            # TEMP CHEAT: delete when done testing
-    def cheat_win(self, event):
-        if self.game_won:
-            return
-
-        self.game.cheat_fill_foundations()
-        self.refresh_board()
-
-        if self.game.check_win():
-            self.show_win_screen()
             
     # Scales a number from the 1000x1000 design grid to this screen
     def sc(self, n):
