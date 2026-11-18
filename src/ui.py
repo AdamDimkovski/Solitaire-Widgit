@@ -1,4 +1,5 @@
 import tkinter as tk
+import random
 
 from PIL import Image, ImageTk
 
@@ -6,7 +7,30 @@ class AppWindow:
     def __init__(self, root, game, click_callback):
         self.root = root
         self.root.title("Solitaire")
-        self.root.geometry("1000x1000")
+        
+        
+        # Everything is designed on a 1000x1000 grid, then scaled to the screen
+        screen_w = root.winfo_screenwidth()
+        screen_h = root.winfo_screenheight()
+        self.win_size = int(min(screen_w, screen_h) * 0.85)  # 0.85 leaves room for taskbar/title bar
+        self.scale = self.win_size / 1000
+
+        self.card_w = self.sc(100)
+        self.card_h = self.sc(160)
+        self.half_w = self.card_w // 2
+        self.half_h = self.card_h // 2
+        self.col_spacing = self.sc(125)
+        self.stack_offset = self.sc(25)
+        self.top_row_y = self.sc(100)
+        self.tableau_x = self.sc(125)
+        self.tableau_y = self.sc(300)
+        self.foundation_x = self.sc(250)
+        self.stock_x = self.sc(900)
+        self.stock_y = self.top_row_y
+        self.waste_x = self.sc(750)
+        self.waste_y = self.top_row_y
+        
+        self.root.geometry(f"{self.win_size}x{self.win_size}")
         self.root.resizable(False, False)
         self.game = game 
         
@@ -19,18 +43,24 @@ class AppWindow:
         self.card_positions = []
         self.card_images = []
         
-        # Stock/Waste Pile Variables
-        self.stock_x = 900
-        self.stock_y = 100
-        self.waste_x = 750
-        self.waste_y = 100
+        self.game_won = False
+        self.anim_after_id = None
+        self.launch_queue = []
+        self.flying_cards = []
+        self.win_images = []
+        self.win_text_id = None
+        self.tick = 0
+        self.trail_layer = None
+        self.trail_photo = None
+        self.trail_id = None
         
         # Save the callback function passed from main.py
         self.click_callback = click_callback
 
         # Tag which holds my background image
-        self.bg_image = tk.PhotoImage(
-            file="assets//Background//backgroundImage.png"
+        bg_raw = Image.open("assets//Background//backgroundImage.jpg")
+        self.bg_image = ImageTk.PhotoImage(
+            bg_raw.resize((self.win_size, self.win_size), Image.Resampling.LANCZOS)
         )
 
         # Adds placeholder image for foundation cards and resizes them
@@ -44,6 +74,7 @@ class AppWindow:
         
         self.refresh_board()
         
+        self.root.bind("w", self.cheat_win)
         
         
     # Function that creates UI widgits
@@ -52,8 +83,8 @@ class AppWindow:
         # Create the game canvas
         self.canvas = tk.Canvas(
             self.root,
-            width=1000,
-            height=1000,
+            width=self.win_size,
+            height=self.win_size,
             highlightthickness=0
         )
 
@@ -67,41 +98,12 @@ class AppWindow:
             anchor="nw"
         )
 
-        # Put foundation placeholders on top of background
-        # Foundation Card 1
-        self.canvas.create_image(
-            250,
-            100,
-            image=self.ace_image
-        )
-
-        # Foundation Card 2
-        self.canvas.create_image(
-            375,
-            100,
-            image=self.ace_image
-        )
-
-        # Foundation Card 3
-        self.canvas.create_image(
-            500,
-            100,
-            image=self.ace_image
-        )
-
-        # Foundation Card 4
-        self.canvas.create_image(
-            625,
-            100,
-            image=self.ace_image
-        )
-
         # New Game button
         self.button = tk.Button(
             self.root,
             text="New Game",
             command=self.click_callback,
-            font=("Arial", 16, "bold"),
+            font=("Arial", max(10, self.sc(16)), "bold"),
             bg="#222222",
             fg="white",
             activebackground="#444444",
@@ -112,75 +114,15 @@ class AppWindow:
             height=2
         )
 
-        self.button.place(x=15, y=15)
+        self.button.place(x=self.sc(15), y=self.sc(15))
 
-        # Undo Button
-        self.button = tk.Button(
-            self.root,
-            text="Undo Move",
-            command=self.click_callback,
-            font=("Arial", 16, "bold"),
-            bg="#222222",
-            fg="white",
-            activebackground="#444444",
-            activeforeground="white",
-            relief="flat",
-            bd=0,
-            width=12,
-            height=2
-        )
+        # Foundation Piles
+        for i in range(4):
+            self.canvas.create_image(self.foundation_x + i * self.col_spacing, self.top_row_y, image=self.ace_image)
 
-        self.button.place(x=15, y=115)
-
-        # Place Lowerpile placeholders
-        # Lowerpile 1
-        self.canvas.create_image(
-            125,
-            300,
-            image=self.ace_image
-        )
-        
-        # Lowerpile 2
-        self.canvas.create_image(
-            250,
-            300,
-            image=self.ace_image
-        )
-
-        # Lowerpile 3
-        self.canvas.create_image(
-            375,
-            300,
-            image=self.ace_image
-        )
-        
-        # Lowerpile 4
-        self.canvas.create_image(
-            500,
-            300,
-            image=self.ace_image
-        )
-
-        # Lowerpile 5
-        self.canvas.create_image(
-            625,
-            300,
-            image=self.ace_image
-        )
-                
-        # Lowerpile 6
-        self.canvas.create_image(
-            750,
-            300,
-            image=self.ace_image
-        )
-
-        # Lowerpile 7
-        self.canvas.create_image(
-            875,
-            300,
-            image=self.ace_image
-        )
+        # Tableau Piles
+        for i in range(7):
+            self.canvas.create_image(self.tableau_x + i * self.col_spacing, self.tableau_y, image=self.ace_image)
         
             
         # Card Click event
@@ -188,6 +130,23 @@ class AppWindow:
 
     # Function to refresh cards on screen
     def refresh_board(self):
+        
+        # Stop and clear any win animation
+        if self.anim_after_id is not None:
+            self.root.after_cancel(self.anim_after_id)
+            self.anim_after_id = None
+
+        self.canvas.delete("win")
+        self.canvas.delete("wintext")
+        self.launch_queue = []
+        self.flying_cards = []
+        self.win_images = []
+        self.win_text_id = None
+        self.game_won = False
+        self.tick = 0
+        self.trail_layer = None
+        self.trail_photo = None
+        self.trail_id = None
 
         # Clear previous render
         self.canvas.delete("card")
@@ -206,16 +165,10 @@ class AppWindow:
 
         self.canvas_ID = None
 
-        # Draw tableau columns
-        tableau_start_x = 125 # The First Tableau Pile X Position
-        tableau_spacing_x = 125 # The spacing between all Tableau Piles
-        tableau_base_y = 300 # The Y position of all Tableau Piles
-        vertical_offset = 25 # How far down each stacked card peaks out
-
         for column_index, column in enumerate(self.game.tableau):
-            x = tableau_start_x + (column_index * tableau_spacing_x)
+            x = self.tableau_x + (column_index * self.col_spacing)
             for card_index, card in enumerate(column):
-                y = tableau_base_y + (card_index * vertical_offset)
+                y = self.tableau_y + (card_index * self.stack_offset)
 
                 photo_image = self.load_and_resize(card.image_filename())
 
@@ -227,23 +180,17 @@ class AppWindow:
                 # Store card position for card selection
                 self.card_positions.append((card, x, y, column_index, card_index, "Tableau"))
 
-        # Draws foundation cards if foundation contains cards
-        foundation_start_x = 250
-        foundation_spacing_x = 125
-        foundation_y = 100
-
         for pile_index, pile in enumerate(self.game.foundations):
             if pile:
                 top_card = pile[-1]
-                x = foundation_start_x + (pile_index * foundation_spacing_x)
+                x = self.foundation_x + (pile_index * self.col_spacing)
 
                 photo_image = self.load_and_resize(top_card.image_filename())
                 self.card_images.append(photo_image)
-                self.canvas.create_image(x, foundation_y, image=photo_image, tags="card")
+                self.canvas.create_image(x, self.top_row_y, image=photo_image, tags="card")
                 
                 # Store card position for card selection
-                self.card_positions.append((top_card, x, foundation_y, pile_index, len(pile) - 1, "Foundation"))
-                
+                self.card_positions.append((top_card, x, self.top_row_y, pile_index, len(pile) - 1, "Foundation"))
         # Draws stock cards into stock
         if not self.game.stock:
             photo_image = self.ace_image
@@ -286,10 +233,10 @@ class AppWindow:
                 if (not card.face_up):
                     continue
                  
-            left = x - 50
-            right = x + 50
-            top = y - 80
-            bottom = y + 80
+            left = x - self.half_w
+            right = x + self.half_w
+            top = y - self.half_h
+            bottom = y + self.half_h
             
             # Stock loop block
             if(pile_type == "Stock"):
@@ -305,7 +252,10 @@ class AppWindow:
     # Function to handle toggle of card clicks
     def on_canvas_click(self, event):
         
-        if (event.x > self.stock_x - 50 and event.x < self.stock_x + 50) and (event.y > self.stock_y - 80 and event.y < self.stock_y + 80):
+        if self.game_won:
+            return
+        
+        if (event.x > self.stock_x - self.half_w and event.x < self.stock_x + self.half_w) and (event.y > self.stock_y - self.half_h and event.y < self.stock_y + self.half_h):
             
             # Calls stock to waste logic
             self.game.stock_to_waste()
@@ -336,6 +286,10 @@ class AppWindow:
                 
                if self.game.card_moving(self.source_pile, self.pile_number, self.card_index_inpile, destination_type, destination_number):
                    self.refresh_board()
+                   
+                   # Checks to see if game win condition met for victory screen
+                   if self.game.check_win():
+                       self.show_win_screen()
                    return 
 
         if not clicked_info:
@@ -375,11 +329,11 @@ class AppWindow:
                         cards_below = len(self.game.tableau[pile_index]) - 1 - card_index
                     else:
                         cards_below = 0
-                    self.canvas_ID = self.canvas.create_rectangle(
-                            x - 50,
-                            y - 80,
-                            x + 50,
-                            y + 80 + (25 * cards_below),
+                        self.canvas_ID = self.canvas.create_rectangle(
+                            x - self.half_w,
+                            y - self.half_h,
+                            x + self.half_w,
+                            y + self.half_h + (self.stack_offset * cards_below),
                             outline="blue",
                             width=3
                     )
@@ -388,50 +342,163 @@ class AppWindow:
     # Function to load and resize images (helper)
     def load_and_resize(self, filename):
         raw = Image.open(filename)
-        resized = raw.resize((100, 160),
+        resized = raw.resize((self.card_w, self.card_h),
                 Image.Resampling.LANCZOS)
         return ImageTk.PhotoImage(resized)
     
     # Function to determine which pile was clicked (helper)
     def pile_identifier(self, event):
-        
-        # Looping for foundation stack
-        
-        # foundation pile cords
-        foundation_start_x = 250
-        foundation_spacing_x = 125
-        foundation_y = 100
-        
+
         for pile_numbers in range(4):
-            
-            x = foundation_start_x + (pile_numbers * foundation_spacing_x)
-            y = foundation_y
-            
-            if (event.x > x - 50 and event.x < x + 50) and (event.y > y - 80 and event.y < y + 80):
+            x = self.foundation_x + (pile_numbers * self.col_spacing)
+            y = self.top_row_y
+
+            if (event.x > x - self.half_w and event.x < x + self.half_w) and (event.y > y - self.half_h and event.y < y + self.half_h):
                 return "Foundation", pile_numbers
-            
-        # Looping for tabelau stack
-        
-        # tableau pile cords
-        tableau_start_x = 125
-        tableau_spacing_x = 125 
-        tableau_base_y = 300 
-        
+
         for column_index, column in enumerate(self.game.tableau):
-            
-            x = tableau_start_x + (column_index * tableau_spacing_x)
-            
-            top_edge = tableau_base_y - 80
-            
-            cards_after_first = len(column) - 1
-            
-            if cards_after_first < 0:
-                cards_after_first = 0
-            
-            last_card_centre = tableau_base_y + (25 * cards_after_first)
-            bottom_edge = last_card_centre + 80
-            
-            if (event.x > x - 50 and event.x < x + 50) and (event.y > top_edge and event.y < bottom_edge):
+            x = self.tableau_x + (column_index * self.col_spacing)
+
+            top_edge = self.tableau_y - self.half_h
+            cards_after_first = max(len(column) - 1, 0)
+            bottom_edge = self.tableau_y + (self.stack_offset * cards_after_first) + self.half_h
+
+            if (event.x > x - self.half_w and event.x < x + self.half_w) and (event.y > top_edge and event.y < bottom_edge):
                 return "Tableau", column_index
+
+        return None
+    
+    # Detects victory condition + loads victory animation
+    def show_win_screen(self):
         
-        return None 
+        self.game_won = True
+        self.launch_queue = []
+        
+        
+        for pos in range(12, -1, -1):
+            for index, pile in enumerate(self.game.foundations):
+                
+                self.launch_queue.append((pile[pos], index))
+            
+        # Banner behind the text so it stays readable over the trails
+        s = self.sc
+
+        self.canvas.create_rectangle(
+            s(180), s(440), s(820), s(560),
+            fill="#1b2a41", outline="#f4c542", width=max(2, s(4)),
+            tags="wintext"
+        )
+
+        self.canvas.create_text(
+            s(503), s(478), text="YOU WIN!",
+            font=("Georgia", max(14, s(44)), "bold"),
+            fill="black", anchor="center", tags="wintext"
+        )
+
+        self.win_text_id = self.canvas.create_text(
+            s(500), s(475), text="YOU WIN!",
+            font=("Georgia", max(14, s(44)), "bold"),
+            fill="#f4c542", anchor="center", tags="wintext"
+        )
+
+        self.canvas.create_text(
+            s(500), s(530), text="Press New Game to play again",
+            font=("Arial", max(9, s(18))),
+            fill="white", anchor="center", tags="wintext"
+        )
+
+        self.trail_layer = Image.new("RGBA", (self.win_size, self.win_size), (0, 0, 0, 0))
+        self.trail_photo = ImageTk.PhotoImage(self.trail_layer)
+        self.trail_id = self.canvas.create_image(
+            0, 0, image=self.trail_photo, anchor="nw", tags="win"
+        )
+
+        self.animate_cards()
+        
+    # Plays victory animation
+    def animate_cards(self):
+
+        self.tick += 1
+        stamped = False
+
+        # Launch the next card every 15 ticks (first one launches immediately)
+        if self.launch_queue and self.tick % 15 == 1:
+            card, pile_index = self.launch_queue.pop(0)
+
+            x = self.foundation_x + pile_index * self.col_spacing
+            y = self.top_row_y
+
+            pil_img = self.load_pil(card.image_filename())
+            photo = ImageTk.PhotoImage(pil_img)
+            self.win_images.append(photo)
+            image_id = self.canvas.create_image(x, y, image=photo, tags="win")
+
+            vx = random.randint(2, 6) * random.choice([-1, 1]) * self.scale
+            vy = -3 * self.scale
+
+            # Index 5 = photo (keeps reference alive), index 6 = Pillow image (for trails)
+            self.flying_cards.append([image_id, x, y, vx, vy, photo, pil_img])
+
+        for flying_card in self.flying_cards[:]:
+
+            # Paint a trail copy onto the single trail layer every 3rd tick
+            if self.tick % 3 == 0:
+                self.trail_layer.paste(
+                    flying_card[6],
+                    (int(flying_card[1] - self.half_w), int(flying_card[2] - self.half_h)),
+                    flying_card[6]
+                )
+                stamped = True
+
+            # Keep the live card above the trail layer
+            self.canvas.tag_raise(flying_card[0])
+
+            # Gravity and movement
+            flying_card[4] += 0.5 * self.scale
+            flying_card[1] += flying_card[3]
+            flying_card[2] += flying_card[4]
+
+            # Bounce off the floor
+            if flying_card[2] + self.half_h > self.win_size:
+                flying_card[2] = self.win_size - self.half_h
+                flying_card[4] = -flying_card[4] * 0.8
+
+            # Retire once fully off the left or right side
+            if flying_card[1] < -self.half_w or flying_card[1] > self.win_size + self.half_w:
+                self.canvas.delete(flying_card[0])
+                self.flying_cards.remove(flying_card)
+                continue
+
+            self.canvas.coords(flying_card[0], flying_card[1], flying_card[2])
+
+        # Push the updated trails to the screen once per tick, not once per card
+        if stamped:
+            self.trail_photo.paste(self.trail_layer)
+
+        # Keep the win text above everything
+        self.canvas.tag_raise("wintext")
+
+        if self.launch_queue or self.flying_cards:
+            self.anim_after_id = self.root.after(16, self.animate_cards)
+        else:
+            self.anim_after_id = None
+            
+    # Returns a resized Pillow image (used for pasting trails)
+    def load_pil(self, filename):
+        img = Image.open(filename).convert("RGBA")
+        return img.resize((self.card_w, self.card_h), Image.Resampling.LANCZOS)
+        
+            # TEMP CHEAT: delete when done testing
+    def cheat_win(self, event):
+        if self.game_won:
+            return
+
+        self.game.cheat_fill_foundations()
+        self.refresh_board()
+
+        if self.game.check_win():
+            self.show_win_screen()
+            
+    # Scales a number from the 1000x1000 design grid to this screen
+    def sc(self, n):
+        return int(n * self.scale)
