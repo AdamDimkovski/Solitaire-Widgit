@@ -1,5 +1,11 @@
 import tkinter as tk
 import random
+import os
+import sys
+
+def resource_path(relative):
+    base = getattr(sys, "_MEIPASS", os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    return os.path.join(base, relative)
 
 from PIL import Image, ImageTk
 
@@ -7,7 +13,6 @@ class AppWindow:
     def __init__(self, root, game, click_callback):
         self.root = root
         self.root.title("Solitaire")
-        
         
         # Everything is designed on a 1000x1000 grid, then scaled to the screen
         screen_w = root.winfo_screenwidth()
@@ -58,7 +63,7 @@ class AppWindow:
         self.click_callback = click_callback
 
         # Tag which holds my background image
-        bg_raw = Image.open("assets//Background//backgroundImage.jpg")
+        bg_raw = Image.open(resource_path("assets/Background/backgroundImage.jpg"))
         self.bg_image = ImageTk.PhotoImage(
             bg_raw.resize((self.win_size, self.win_size), Image.Resampling.LANCZOS)
         )
@@ -73,10 +78,7 @@ class AppWindow:
         self.create_widgets()
         
         self.refresh_board()
-        
-        self.root.bind("w", self.cheat_win)
-        
-        
+             
     # Function that creates UI widgits
     def create_widgets(self):
 
@@ -191,6 +193,7 @@ class AppWindow:
                 
                 # Store card position for card selection
                 self.card_positions.append((top_card, x, self.top_row_y, pile_index, len(pile) - 1, "Foundation"))
+                
         # Draws stock cards into stock
         if not self.game.stock:
             photo_image = self.ace_image
@@ -342,7 +345,7 @@ class AppWindow:
         
     # Function to load and resize images (helper)
     def load_and_resize(self, filename):
-        raw = Image.open(filename)
+        raw = Image.open(resource_path(filename))
         resized = raw.resize((self.card_w, self.card_h),
                 Image.Resampling.LANCZOS)
         return ImageTk.PhotoImage(resized)
@@ -486,7 +489,7 @@ class AppWindow:
             
     # Returns a resized Pillow image (used for pasting trails)
     def load_pil(self, filename):
-        img = Image.open(filename).convert("RGBA")
+        img = Image.open(resource_path(filename)).convert("RGBA")
         return img.resize((self.card_w, self.card_h), Image.Resampling.LANCZOS)
             
     # Scales a number from the 1000x1000 design grid to this screen
